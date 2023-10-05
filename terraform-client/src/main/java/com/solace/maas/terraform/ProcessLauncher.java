@@ -1,4 +1,4 @@
-package com.microsoft.terraform;
+package com.solace.maas.terraform;
 
 import java.io.*;
 import java.util.*;
@@ -65,6 +65,9 @@ final class ProcessLauncher {
         if (this.inheritIO) {
             this.builder.inheritIO();
         }
+
+        System.out.println("Executing command: " + String.join(" ", this.builder.command()));
+
         try {
             this.process = this.builder.start();
         } catch (IOException ex) {

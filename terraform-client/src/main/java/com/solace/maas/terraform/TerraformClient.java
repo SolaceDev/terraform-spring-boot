@@ -1,4 +1,4 @@
-package com.microsoft.terraform;
+package com.solace.maas.terraform;
 
 import java.io.*;
 import java.nio.file.*;
@@ -8,29 +8,17 @@ import java.util.function.*;
 
 public class TerraformClient implements AutoCloseable {
     private static final String TERRAFORM_EXE_NAME = "terraform";
-    private static final String VERSION_COMMAND = "version", INIT_COMMAND = "init", PLAN_COMMAND = "plan", APPLY_COMMAND = "apply", DESTROY_COMMAND = "destroy";
-    private static final String SUBS_ID_ENV_NAME = "ARM_SUBSCRIPTION_ID", CLIENT_ID_ENV_NAME = "ARM_CLIENT_ID", SECRET_ENV_NAME = "ARM_CLIENT_SECRET", TENANT_ID_ENV_NAME = "ARM_TENANT_ID";
-    private static final String USER_AGENT_ENV_NAME = "AZURE_HTTP_USER_AGENT", USER_AGENT_ENV_VALUE = "Java-TerraformClient", USER_AGENT_DELIMITER = ";";
+    private static final String VERSION_COMMAND = "version", PLAN_COMMAND = "plan", APPLY_COMMAND = "apply", DESTROY_COMMAND = "destroy";
     private static final Map<String, String> NON_INTERACTIVE_COMMAND_MAP = new HashMap<>();
     static {
         NON_INTERACTIVE_COMMAND_MAP.put(APPLY_COMMAND, "-auto-approve");
-        NON_INTERACTIVE_COMMAND_MAP.put(DESTROY_COMMAND, "-force");
+        NON_INTERACTIVE_COMMAND_MAP.put(DESTROY_COMMAND, "-auto-approve");
     }
 
     private final ExecutorService executor = Executors.newWorkStealingPool();
-    private final TerraformOptions options;
     private File workingDirectory;
     private boolean inheritIO;
     private Consumer<String> outputListener, errorListener;
-
-    public TerraformClient() {
-        this(new TerraformOptions());
-    }
-
-    public TerraformClient(TerraformOptions options) {
-        assert options != null;
-        this.options = options;
-    }
 
     public Consumer<String> getOutputListener() {
         return this.outputListener;
@@ -83,17 +71,17 @@ public class TerraformClient implements AutoCloseable {
 
     public CompletableFuture<Boolean> plan() throws IOException {
         this.checkRunningParameters();
-        return this.run(INIT_COMMAND, PLAN_COMMAND);
+        return this.run(PLAN_COMMAND);
     }
 
     public CompletableFuture<Boolean> apply() throws IOException {
         this.checkRunningParameters();
-        return this.run(INIT_COMMAND, APPLY_COMMAND);
+        return this.run(APPLY_COMMAND);
     }
 
     public CompletableFuture<Boolean> destroy() throws IOException {
         this.checkRunningParameters();
-        return this.run(INIT_COMMAND, DESTROY_COMMAND);
+        return this.run(DESTROY_COMMAND);
     }
 
     private CompletableFuture<Boolean> run(String... commands) throws IOException {
@@ -125,12 +113,7 @@ public class TerraformClient implements AutoCloseable {
         ProcessLauncher launcher = new ProcessLauncher(this.executor, TERRAFORM_EXE_NAME, command);
         launcher.setDirectory(this.getWorkingDirectory());
         launcher.setInheritIO(this.isInheritIO());
-        launcher.setOrAppendEnvironmentVariable(USER_AGENT_ENV_NAME, USER_AGENT_ENV_VALUE, USER_AGENT_DELIMITER);
-        launcher.setEnvironmentVariable(SUBS_ID_ENV_NAME, this.options.getArmSubscriptionId());
-        launcher.setEnvironmentVariable(CLIENT_ID_ENV_NAME, this.options.getArmClientId());
-        launcher.setEnvironmentVariable(SECRET_ENV_NAME, this.options.getArmClientSecret());
-        launcher.setEnvironmentVariable(TENANT_ID_ENV_NAME, this.options.getArmTenantId());
-        launcher.appendCommands(NON_INTERACTIVE_COMMAND_MAP.get(command));
+        launcher.appendCommands("-json", NON_INTERACTIVE_COMMAND_MAP.get(command));
         launcher.setOutputListener(this.getOutputListener());
         launcher.setErrorListener(this.getErrorListener());
         return launcher;
